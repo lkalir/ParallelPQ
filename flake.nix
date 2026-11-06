@@ -57,6 +57,7 @@
           clang-analyzer
           cmake-language-server
           gbenchmark
+          openssl
           python3
           python3Packages.matplotlib
           python3Packages.ruff

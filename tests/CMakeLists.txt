@@ -1,16 +1,22 @@
 set(PPQ_TEST_VECTORS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vectors")
 
+# ppq_add_host_test(name [LIBS extra libraries...])
 function(ppq_add_host_test name)
+    cmake_parse_arguments(PARSE_ARGV 1 arg "" "" "LIBS")
     add_executable(${name} ${name}.cpp)
-    target_link_libraries(${name} PRIVATE ppq_host ppq_warnings)
+    target_link_libraries(${name} PRIVATE ppq_host ppq_warnings ${arg_LIBS})
     target_compile_definitions(${name} PRIVATE TEST_VECTORS_DIR="${PPQ_TEST_VECTORS_DIR}")
     add_test(NAME ${name} COMMAND ${name})
     set_tests_properties(${name} PROPERTIES LABELS host)
 endfunction()
 
 ppq_add_host_test(test_launch_host)
+ppq_add_host_test(test_params_host)
 ppq_add_host_test(test_shake_host)
 ppq_add_host_test(test_mldsa_host)
+ppq_add_host_test(test_workload_host)
+ppq_add_host_test(test_cpuref_host LIBS ppq_cpuref)
+ppq_add_host_test(test_generate_host LIBS ppq_cpuref)
 
 if(NOT PPQ_GPU_ENABLED)
     return()
