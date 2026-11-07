@@ -16,7 +16,7 @@ EXE      := ppq.exe
 RUN_ARGS ?= info
 
 .DEFAULT_GOAL := all
-.PHONY: all build configure probe run test test-host clean distclean
+.PHONY: all build configure probe run test test-host stage-vectors clean distclean
 
 all: $(EXE)
 
@@ -60,6 +60,14 @@ test-host:
 	@$(CMAKE) -S . -B "$(HOST_BUILD_DIR)" -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -DPPQ_GPU_ENABLED=OFF
 	@$(CMAKE) --build "$(HOST_BUILD_DIR)" --parallel $(JOBS)
 	@cd "$(HOST_BUILD_DIR)" && ctest --output-on-failure
+
+# Regenerate tests/vectors/stages from the pinned pq-crystals commit (host only)
+stage-vectors:
+	@$(CMAKE) -S . -B "$(HOST_BUILD_DIR)" -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -DPPQ_GPU_ENABLED=OFF
+	@$(CMAKE) --build "$(HOST_BUILD_DIR)" --target stage_vectors --parallel $(JOBS)
+	@mkdir -p tests/vectors/stages
+	@"$(HOST_BUILD_DIR)/bin/stage_vectors.exe" tests/vectors/stages/mldsa_stages.txt
+	@echo "wrote tests/vectors/stages/mldsa_stages.txt"
 
 clean:
 	@if [ -d "$(BUILD_DIR)" ]; then \

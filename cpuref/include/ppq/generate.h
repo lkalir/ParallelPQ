@@ -43,7 +43,8 @@ void validate_spec(const GenSpec &spec);
 /// The same spec (apart from threads and impl) always produces the same workload
 Workload generate(const GenSpec &spec);
 
-/// Verifies every signature with the CPU reference; 1 = valid. 0 threads = all.
+/// Verifies every signature with the CPU reference through the workload's interface;
+/// 1 = valid. 0 threads = all. Throws std::invalid_argument if the impl lacks the interface.
 std::vector<std::uint8_t> cpu_verify_batch(const Workload &w, cpuref::Impl impl,
                                            unsigned threads = 0);
 

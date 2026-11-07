@@ -2,6 +2,8 @@ add_library(ppq_host STATIC
     src/shake_vectors.cpp
     src/mldsa_cpu.cpp
     src/workload.cpp
+    src/kv_vectors.cpp
+    src/acvp.cpp
 )
 find_package(Threads REQUIRED)
 target_include_directories(ppq_host PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

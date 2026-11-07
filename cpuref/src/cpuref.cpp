@@ -136,18 +136,6 @@ bool available(Impl impl) {
     return false;
 }
 
-const char *interface_name(Interface iface) {
-    switch (iface) {
-    case Interface::External:
-        return "external";
-    case Interface::Internal:
-        return "internal";
-    case Interface::Mu:
-        return "mu";
-    }
-    return "unknown";
-}
-
 bool supports(Impl impl, Interface iface) {
     // pq-crystals exposes no verify-from-mu entry; Ref gets one through its stage internals
     return available(impl) && !(impl == Impl::Avx2 && iface == Interface::Mu);

@@ -16,6 +16,38 @@ namespace ppq {
 static_assert(std::endian::native == std::endian::little, ".ppq I/O assumes little-endian");
 static_assert(sizeof(Verdict) == 1 && sizeof(Tamper) == 1);
 
+const char *interface_name(Interface iface) {
+    switch (iface) {
+    case Interface::External:
+        return "external";
+    case Interface::Internal:
+        return "internal";
+    case Interface::Mu:
+        return "mu";
+    }
+    return "unknown";
+}
+
+std::optional<Interface> parse_interface(std::string_view name) {
+    for (std::size_t i = 0; i < INTERFACE_COUNT; ++i) {
+        const auto iface = static_cast<Interface>(i);
+        if (name == interface_name(iface)) {
+            return iface;
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<Verdict> parse_verdict(std::string_view name) {
+    for (std::size_t i = 0; i < VERDICT_COUNT; ++i) {
+        const auto v = static_cast<Verdict>(i);
+        if (name == verdict_name(v)) {
+            return v;
+        }
+    }
+    return std::nullopt;
+}
+
 const char *verdict_name(Verdict v) {
     switch (v) {
     case Verdict::Pass:
@@ -113,6 +145,12 @@ void Workload::add_signature(std::uint32_t key, ByteView sig, ByteView msg, Byte
     if (ctx.size() > MAX_CONTEXT_BYTES) {
         throw std::invalid_argument("context strings are at most 255 bytes");
     }
+    if (iface != Interface::External && !ctx.empty()) {
+        throw std::invalid_argument("only the external interface has context strings");
+    }
+    if (iface == Interface::Mu && msg.size() != MU_BYTES) {
+        throw std::invalid_argument("mu workloads hold 64-byte mu values as messages");
+    }
 
     sigs.insert(sigs.end(), sig.begin(), sig.end());
     key_index.push_back(key);
@@ -178,6 +216,20 @@ void Workload::validate() const {
                   std::numeric_limits<std::size_t>::max());
     check_offsets(ctx_offsets, n, ctx_data.size(), "context", MAX_CONTEXT_BYTES);
 
+    if (static_cast<std::size_t>(iface) >= INTERFACE_COUNT) {
+        invalid("unknown interface");
+    }
+    if (iface != Interface::External && !ctx_data.empty()) {
+        invalid(std::string(interface_name(iface)) + " workloads have no contexts");
+    }
+    if (iface == Interface::Mu) {
+        for (std::size_t i = 0; i < n; ++i) {
+            if (msg_offsets[i + 1] - msg_offsets[i] != MU_BYTES) {
+                invalid("signature " + std::to_string(i) + ": mu must be 64 bytes");
+            }
+        }
+    }
+
     for (std::size_t i = 0; i < n; ++i) {
         if (key_index[i] >= key_count()) {
             invalid("signature " + std::to_string(i) + " refers to missing key " +
@@ -191,8 +243,8 @@ void Workload::validate() const {
 }
 
 bool same_workload(const Workload &a, const Workload &b) {
-    return a.params.id == b.params.id && a.seed == b.seed && a.pks == b.pks && a.sigs == b.sigs &&
-           a.key_index == b.key_index && a.msg_offsets == b.msg_offsets &&
+    return a.params.id == b.params.id && a.iface == b.iface && a.seed == b.seed && a.pks == b.pks &&
+           a.sigs == b.sigs && a.key_index == b.key_index && a.msg_offsets == b.msg_offsets &&
            a.msg_data == b.msg_data && a.ctx_offsets == b.ctx_offsets && a.ctx_data == b.ctx_data &&
            a.expected == b.expected && a.tamper == b.tamper;
 }
@@ -200,11 +252,12 @@ bool same_workload(const Workload &a, const Workload &b) {
 namespace {
 
 constexpr char MAGIC[4] = {'P', 'P', 'Q', '1'};
-constexpr std::size_t HEADER_BYTES = 4 + 4 + 5 * 8;
+constexpr std::size_t HEADER_BYTES = 4 + 4 + 4 + 5 * 8;
 constexpr std::size_t CHECKSUM_BYTES = 32;
 
 struct Header {
     std::uint32_t param_id = 0;
+    std::uint32_t iface = 0;
     std::uint64_t keys = 0;
     std::uint64_t sigs = 0;
     std::uint64_t msg_bytes = 0;
@@ -336,11 +389,12 @@ void save_workload(const Workload &w, const std::string &path) {
     std::uint8_t header[HEADER_BYTES];
     std::copy(MAGIC, MAGIC + 4, header);
     put_u32(header + 4, static_cast<std::uint32_t>(w.params.id));
-    store_le64(header + 8, w.key_count());
-    store_le64(header + 16, w.sig_count());
-    store_le64(header + 24, w.msg_data.size());
-    store_le64(header + 32, w.ctx_data.size());
-    store_le64(header + 40, w.seed);
+    put_u32(header + 8, static_cast<std::uint32_t>(w.iface));
+    store_le64(header + 12, w.key_count());
+    store_le64(header + 20, w.sig_count());
+    store_le64(header + 28, w.msg_data.size());
+    store_le64(header + 36, w.ctx_data.size());
+    store_le64(header + 44, w.seed);
 
     const std::string tmp = path + ".tmp";
     {
@@ -388,11 +442,12 @@ Workload load_workload(const std::string &path) {
 
     Header h;
     h.param_id = get_u32(raw + 4);
-    h.keys = load_le64(raw + 8);
-    h.sigs = load_le64(raw + 16);
-    h.msg_bytes = load_le64(raw + 24);
-    h.ctx_bytes = load_le64(raw + 32);
-    h.seed = load_le64(raw + 40);
+    h.iface = get_u32(raw + 8);
+    h.keys = load_le64(raw + 12);
+    h.sigs = load_le64(raw + 20);
+    h.msg_bytes = load_le64(raw + 28);
+    h.ctx_bytes = load_le64(raw + 36);
+    h.seed = load_le64(raw + 44);
 
     const ParamSet *params = find_param_set(static_cast<int>(h.param_id));
     if (params == nullptr) {
@@ -409,6 +464,7 @@ Workload load_workload(const std::string &path) {
 
     Workload w;
     w.params = *params;
+    w.iface = static_cast<Interface>(h.iface < INTERFACE_COUNT ? h.iface : INTERFACE_COUNT);
     w.seed = h.seed;
     r.read_vector(w.pks, h.keys * params->pk_bytes);
     r.read_vector(w.sigs, h.sigs * params->sig_bytes);

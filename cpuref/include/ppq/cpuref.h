@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "ppq/params.h"
+#include "ppq/workload.h"
 
 namespace ppq::cpuref {
 
@@ -26,17 +27,9 @@ enum class Impl : std::uint8_t {
 
 constexpr Impl ALL_IMPLS[] = {Impl::Ref, Impl::Avx2, Impl::OpenSsl};
 
-/// Which FIPS 204 verification entry point a signature was made for
-enum class Interface : std::uint8_t {
-    /// ML-DSA.Verify(pk, M, sigma, ctx): pure ML-DSA with a context string
-    External,
-    /// ML-DSA.Verify_internal(pk, M', sigma): the caller supplies M' itself
-    Internal,
-    /// Verify_internal given mu directly (ACVP "externalMu")
-    Mu,
-};
-
-const char *interface_name(Interface iface);
+/// Verification entry points (defined with the workload model)
+using ppq::Interface;
+using ppq::interface_name;
 
 const char *impl_name(Impl impl);
 

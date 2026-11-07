@@ -47,6 +47,11 @@ add_subdirectory(core)
 add_subdirectory(cpuref)
 add_subdirectory(tests)
 
+# Host tool that regenerates tests/vectors/stages (make stage-vectors)
+add_executable(stage_vectors tools/stage_vectors.cpp)
+target_link_libraries(stage_vectors PRIVATE ppq_cpuref ppq_warnings)
+set_target_properties(stage_vectors PROPERTIES SUFFIX ".exe")
+
 if(NOT PPQ_GPU_ENABLED)
     return()
 endif()

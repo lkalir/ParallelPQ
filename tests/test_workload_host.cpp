@@ -164,8 +164,8 @@ TEST_CASE(damaged_files_are_rejected) {
     CHECK(load_fails(bad, "wrong size"));
 
     b = bytes;
-    b[16] = 0xFF; // signature count: implies a huge file, must fail before allocating
-    b[23] = 0x7F;
+    b[20] = 0xFF; // signature count: implies a huge file, must fail before allocating
+    b[27] = 0x7F;
     write_file(bad, b);
     CHECK(load_fails(bad, "wrong size"));
 
@@ -227,6 +227,73 @@ TEST_CASE(names_round_trip) {
     CHECK(ppq::expected_verdict(ppq::Tamper::None) == ppq::Verdict::Pass);
     CHECK(ppq::expected_verdict(ppq::Tamper::Hint) == ppq::Verdict::BadHint);
     CHECK(std::string(ppq::verdict_name(ppq::Verdict::ZNorm)) == "z-norm");
+    for (std::size_t i = 0; i < ppq::VERDICT_COUNT; ++i) {
+        const auto v = static_cast<ppq::Verdict>(i);
+        CHECK(ppq::parse_verdict(ppq::verdict_name(v)) == v);
+    }
+    for (std::size_t i = 0; i < ppq::INTERFACE_COUNT; ++i) {
+        const auto iface = static_cast<ppq::Interface>(i);
+        CHECK(ppq::parse_interface(ppq::interface_name(iface)) == iface);
+    }
+    CHECK(!ppq::parse_interface("prehash").has_value());
+}
+
+ppq::Workload with_interface(ppq::Interface iface) {
+    const ppq::ParamSet &p = ppq::ML_DSA_44;
+    ppq::Workload w;
+    w.params = p;
+    w.iface = iface;
+    w.add_key(filler(0, p.pk_bytes));
+    const std::size_t len = iface == ppq::Interface::Mu ? ppq::MU_BYTES : 50;
+    w.add_signature(0, filler(10, p.sig_bytes), filler(20, len), {}, ppq::Verdict::Pass);
+    w.add_signature(0, filler(11, p.sig_bytes), filler(21, len), {}, ppq::Verdict::BadHint);
+    return w;
+}
+
+TEST_CASE(interfaces_round_trip_and_constrain_messages) {
+    const test_util::TempDir dir("workload");
+    for (const auto iface : {ppq::Interface::Internal, ppq::Interface::Mu}) {
+        const ppq::Workload w = with_interface(iface);
+        const std::string path = dir.file(std::string(ppq::interface_name(iface)) + ".ppq");
+        ppq::save_workload(w, path);
+        const ppq::Workload back = ppq::load_workload(path);
+        CHECK(back.iface == iface);
+        CHECK(same_workload(w, back));
+    }
+
+    const auto rejects = [](ppq::Interface iface, std::size_t msg_len, std::size_t ctx_len) {
+        ppq::Workload w = with_interface(iface);
+        try {
+            w.add_signature(0, Bytes(w.params.sig_bytes), Bytes(msg_len), Bytes(ctx_len),
+                            ppq::Verdict::Pass);
+        } catch (const std::invalid_argument &) {
+            return true;
+        }
+        return false;
+    };
+    CHECK(rejects(ppq::Interface::Internal, 10, 1));
+    CHECK(rejects(ppq::Interface::Mu, ppq::MU_BYTES - 1, 0));
+    CHECK(rejects(ppq::Interface::Mu, ppq::MU_BYTES, 1));
+    CHECK(!rejects(ppq::Interface::Mu, ppq::MU_BYTES, 0));
+    CHECK(!rejects(ppq::Interface::External, 10, 1));
+
+    ppq::Workload w = with_interface(ppq::Interface::Mu);
+    w.msg_data.push_back(0);
+    w.msg_offsets.back() += 1;
+    CHECK(invalid(w));
+
+    w = sample();
+    w.iface = ppq::Interface::Internal; // sample() has contexts
+    CHECK(invalid(w));
+
+    // An unknown interface code in the header is rejected on load
+    const std::string good = dir.file("good.ppq");
+    const std::string bad = dir.file("bad.ppq");
+    ppq::save_workload(with_interface(ppq::Interface::Internal), good);
+    Bytes b = read_file(good);
+    b[8] = 7;
+    write_file(bad, b);
+    CHECK(load_fails(bad, ""));
 }
 
 } // namespace

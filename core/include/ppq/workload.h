@@ -7,9 +7,12 @@
 /// contexts vary in length and are stored back to back with offsets: entry i of a ragged array
 /// is data[offsets[i], offsets[i + 1]).
 ///
+/// A workload is verified through one FIPS 204 entry point (its Interface), which decides what
+/// the message field holds.
+///
 /// Workloads are saved as .ppq files, laid out as (all integers little-endian):
 ///
-///   "PPQ1" | u32 param id | u64 keys | u64 signatures | u64 message bytes |
+///   "PPQ1" | u32 param id | u32 interface | u64 keys | u64 signatures | u64 message bytes |
 ///   u64 context bytes | u64 seed |
 ///   public keys | signatures | u32 key index per signature |
 ///   u64 message offsets (signatures + 1) | message data |
@@ -30,6 +33,18 @@
 namespace ppq {
 
 using ByteView = std::span<const std::uint8_t>;
+
+/// Which verification entry point a workload's signatures are checked through. Values are
+/// stored in .ppq files; append only.
+enum class Interface : std::uint8_t {
+    /// ML-DSA.Verify(pk, M, sigma, ctx): pure ML-DSA; messages are M, with contexts
+    External = 0,
+    /// ML-DSA.Verify_internal(pk, M', sigma): messages are M' itself; no contexts
+    Internal = 1,
+    /// Verify_internal given mu = H(tr || M', 64) (ACVP externalMu): messages are 64-byte mu
+    Mu = 2,
+};
+constexpr std::size_t INTERFACE_COUNT = 3;
 
 /// Why a signature fails (or not). Values are stored in .ppq files; append only.
 enum class Verdict : std::uint8_t {
@@ -57,7 +72,10 @@ enum class Tamper : std::uint8_t {
 };
 constexpr std::size_t TAMPER_COUNT = 5;
 
+const char *interface_name(Interface iface);
+std::optional<Interface> parse_interface(std::string_view name);
 const char *verdict_name(Verdict v);
+std::optional<Verdict> parse_verdict(std::string_view name);
 const char *tamper_name(Tamper t);
 std::optional<Tamper> parse_tamper(std::string_view name);
 
@@ -66,6 +84,7 @@ Verdict expected_verdict(Tamper t);
 
 struct Workload {
     ParamSet params = ML_DSA_44;
+    Interface iface = Interface::External;
     /// Seed the workload was generated from; 0 when imported from elsewhere
     std::uint64_t seed = 0;
 

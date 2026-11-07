@@ -222,8 +222,24 @@ Workload generate(const GenSpec &spec) {
 
 std::vector<std::uint8_t> cpu_verify_batch(const Workload &w, cpuref::Impl impl, unsigned threads) {
     std::vector<std::uint8_t> ok(w.sig_count(), 0);
+    if (!cpuref::supports(impl, w.iface)) {
+        throw std::invalid_argument(std::string("CPU implementation '") + cpuref::impl_name(impl) +
+                                    "' cannot verify " + interface_name(w.iface) + " workloads");
+    }
     parallel_for(w.sig_count(), threads, [&](std::size_t i) {
-        ok[i] = cpuref::verify(w.params, w.pk_of(i), w.msg(i), w.ctx(i), w.sig(i), impl) ? 1 : 0;
+        bool valid = false;
+        switch (w.iface) {
+        case Interface::External:
+            valid = cpuref::verify(w.params, w.pk_of(i), w.msg(i), w.ctx(i), w.sig(i), impl);
+            break;
+        case Interface::Internal:
+            valid = cpuref::verify_internal(w.params, w.pk_of(i), w.msg(i), w.sig(i), impl);
+            break;
+        case Interface::Mu:
+            valid = cpuref::verify_mu(w.params, w.pk_of(i), w.msg(i), w.sig(i), impl);
+            break;
+        }
+        ok[i] = valid ? 1 : 0;
     });
     return ok;
 }
