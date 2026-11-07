@@ -19,6 +19,7 @@ ppq_add_host_test(test_cpuref_host LIBS ppq_cpuref)
 ppq_add_host_test(test_generate_host LIBS ppq_cpuref)
 ppq_add_host_test(test_acvp_host LIBS ppq_cpuref)
 ppq_add_host_test(test_stages_host LIBS ppq_cpuref)
+ppq_add_host_test(test_cpu_verifier_host LIBS ppq_cpuref)
 
 if(NOT PPQ_GPU_ENABLED)
     return()

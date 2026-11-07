@@ -100,6 +100,7 @@ add_library(ppq_cpuref STATIC
     src/openssl.cpp
     src/generate.cpp
     src/stages.cpp
+    src/cpu_verifier.cpp
     ${_objects})
 target_include_directories(ppq_cpuref PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(ppq_cpuref PUBLIC ppq_host PRIVATE ppq_warnings)

@@ -4,6 +4,7 @@ add_library(ppq_host STATIC
     src/workload.cpp
     src/kv_vectors.cpp
     src/acvp.cpp
+    src/verifier.cpp
 )
 find_package(Threads REQUIRED)
 target_include_directories(ppq_host PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
