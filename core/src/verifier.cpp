@@ -25,8 +25,11 @@ Agreement compare(const Workload &w, const VerifyResult &r) {
             ++a.wrong_verdict;
             wrong = true;
         }
-        if (wrong && a.examples.size() < MAX_AGREEMENT_EXAMPLES) {
-            a.examples.push_back(i);
+        if (wrong) {
+            ++a.disagreeing;
+            if (a.examples.size() < MAX_AGREEMENT_EXAMPLES) {
+                a.examples.push_back(i);
+            }
         }
     }
     return a;

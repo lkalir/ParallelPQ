@@ -58,6 +58,8 @@
           cmake-language-server
           gbenchmark
           openssl
+          cli11
+          nlohmann_json
           python3
           python3Packages.matplotlib
           python3Packages.ruff

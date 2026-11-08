@@ -99,6 +99,7 @@ TEST_CASE(compare_reports_disagreements) {
     CHECK(!a.ok());
     CHECK(a.wrong_validity == 1);
     CHECK(a.wrong_verdict == 2);
+    CHECK(a.disagreeing == 2);
     CHECK(a.examples.size() == 2);
 
     ppq::VerifyResult short_result = r;

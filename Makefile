@@ -16,7 +16,7 @@ EXE      := ppq.exe
 RUN_ARGS ?= info
 
 .DEFAULT_GOAL := all
-.PHONY: all build configure probe run test test-host stage-vectors clean distclean
+.PHONY: all build configure cpu probe run test test-host stage-vectors clean distclean
 
 all: $(EXE)
 
@@ -55,6 +55,12 @@ run: $(EXE)
 test: configure
 	@$(CMAKE) --build "$(BUILD_DIR)" --parallel $(JOBS)
 	@cd "$(BUILD_DIR)" && ctest --output-on-failure
+
+# ppq.exe without a GPU toolchain (CPU backend only)
+cpu:
+	@$(CMAKE) -S . -B "$(HOST_BUILD_DIR)" -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -DPPQ_GPU_ENABLED=OFF
+	@$(CMAKE) --build "$(HOST_BUILD_DIR)" --target ppq --parallel $(JOBS)
+	@cp -f "$(HOST_BUILD_DIR)/bin/$(EXE)" "$(EXE)"
 
 test-host:
 	@$(CMAKE) -S . -B "$(HOST_BUILD_DIR)" -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -DPPQ_GPU_ENABLED=OFF

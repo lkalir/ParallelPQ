@@ -20,6 +20,30 @@ ppq_add_host_test(test_generate_host LIBS ppq_cpuref)
 ppq_add_host_test(test_acvp_host LIBS ppq_cpuref)
 ppq_add_host_test(test_stages_host LIBS ppq_cpuref)
 ppq_add_host_test(test_cpu_verifier_host LIBS ppq_cpuref)
+ppq_add_host_test(test_app_host LIBS ppq_app)
+
+# ppq.exe end to end: exit statuses and output of the real binary
+set(PPQ_APP_TMP "${CMAKE_CURRENT_BINARY_DIR}/app-tmp")
+file(MAKE_DIRECTORY "${PPQ_APP_TMP}")
+
+function(ppq_add_app_test name regex)
+    add_test(NAME ${name} COMMAND ${ARGN})
+    set_tests_properties(${name} PROPERTIES LABELS app PASS_REGULAR_EXPRESSION "${regex}")
+endfunction()
+
+ppq_add_app_test(app_help "Usage: ppq.exe .*<command>" $<TARGET_FILE:ppq> --help)
+ppq_add_app_test(app_info "cpu impls +ref" $<TARGET_FILE:ppq> info)
+ppq_add_app_test(app_verify "all 256 agree"
+    $<TARGET_FILE:ppq> verify -p 44 -n 256 -k 8 --pass-rate 0.5 --tamper mixed --msg-len 0:64)
+ppq_add_app_test(app_kat "135 agree, 0 disagree" $<TARGET_FILE:ppq> kat)
+# generate, verify the file, and check both exit statuses
+add_test(NAME app_generate_verify COMMAND sh -c
+    "'$<TARGET_FILE:ppq>' generate -o '${PPQ_APP_TMP}/w.ppq' -p 65 -n 32 --pass-rate 0.5 --tamper mixed && '$<TARGET_FILE:ppq>' verify -i '${PPQ_APP_TMP}/w.ppq' --verdicts")
+set_tests_properties(app_generate_verify PROPERTIES LABELS app)
+add_test(NAME app_usage_error COMMAND sh -c "'$<TARGET_FILE:ppq>' verify -p 50; test $? -eq 2")
+set_tests_properties(app_usage_error PROPERTIES LABELS app)
+add_test(NAME app_missing_file COMMAND sh -c "'$<TARGET_FILE:ppq>' verify -i '${PPQ_APP_TMP}/missing.ppq'; test $? -eq 1")
+set_tests_properties(app_missing_file PROPERTIES LABELS app)
 
 if(NOT PPQ_GPU_ENABLED)
     return()

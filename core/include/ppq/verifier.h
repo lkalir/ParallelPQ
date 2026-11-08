@@ -52,7 +52,9 @@ struct Agreement {
     std::size_t wrong_validity = 0;
     /// Signatures whose verdict disagrees (only when the backend reports verdicts)
     std::size_t wrong_verdict = 0;
-    /// Indices of the first few disagreements of either kind
+    /// Signatures with a disagreement of either kind
+    std::size_t disagreeing = 0;
+    /// Indices of the first few of them
     std::vector<std::size_t> examples;
 
     bool ok() const { return wrong_validity == 0 && wrong_verdict == 0; }

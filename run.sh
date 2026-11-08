@@ -4,8 +4,15 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 EXE="./ppq.exe"
-# Runs separated by ";"; later phases add verify and benchmark runs here
+# Runs separated by ";": the ACVP vectors, each parameter set, the same-key case and a
+# 50% pass rate with every tamper mode. Later phases add GPU runs here.
 DEFAULT_RUNS="info"
+DEFAULT_RUNS+=";kat"
+DEFAULT_RUNS+=";verify -p 44 -n 4096 -r 5 --warmup 1"
+DEFAULT_RUNS+=";verify -p 65 -n 4096 -r 5 --warmup 1"
+DEFAULT_RUNS+=";verify -p 87 -n 4096 -r 5 --warmup 1"
+DEFAULT_RUNS+=";verify -p 65 -n 4096 -k 1 -r 5 --warmup 1"
+DEFAULT_RUNS+=";verify -p 65 -n 4096 --pass-rate 0.5 --tamper mixed -r 5 --warmup 1"
 RUNS="${RUNS:-${DEFAULT_RUNS}}"
 
 log() { printf '[run] %s\n' "$*"; }

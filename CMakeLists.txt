@@ -42,28 +42,63 @@ target_compile_options(ppq_warnings INTERFACE
     $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-Wall,-Wextra>
     $<$<COMPILE_LANGUAGE:HIP>:-Wall -Wextra>)
 
+# Command line and JSON for ppq.exe: an installed package (e.g. from the Nix dev shell) is
+# used when found, otherwise the pinned release is fetched
+include(FetchContent)
+FetchContent_Declare(CLI11
+    GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
+    GIT_TAG        v2.7.2
+    GIT_SHALLOW    TRUE
+    FIND_PACKAGE_ARGS 2.4 CONFIG)
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+FetchContent_Declare(nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG        v3.12.0
+    GIT_SHALLOW    TRUE
+    FIND_PACKAGE_ARGS 3.11 CONFIG)
+FetchContent_MakeAvailable(CLI11 nlohmann_json)
+
 enable_testing()
 add_subdirectory(core)
 add_subdirectory(cpuref)
-add_subdirectory(tests)
+
+# ppq.exe: the application layer is host C++ on top of the CPU reference, so it builds
+# and runs without a GPU toolchain; GPU builds add the device query (and later the GPU
+# verifier) below.
+add_library(ppq_app STATIC
+    apps/options.cpp
+    apps/commands.cpp
+)
+target_include_directories(ppq_app PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/apps)
+target_link_libraries(ppq_app
+    PUBLIC ppq_cpuref nlohmann_json::nlohmann_json
+    PRIVATE CLI11::CLI11 ppq_warnings)
+target_compile_definitions(ppq_app PRIVATE
+    PPQ_VERSION="${PROJECT_VERSION}"
+    PPQ_VECTORS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/vectors")
+
+add_executable(ppq apps/main.cpp)
+target_link_libraries(ppq PRIVATE ppq_app ppq_warnings)
+set_target_properties(ppq PROPERTIES SUFFIX ".exe")
 
 # Host tool that regenerates tests/vectors/stages (make stage-vectors)
 add_executable(stage_vectors tools/stage_vectors.cpp)
 target_link_libraries(stage_vectors PRIVATE ppq_cpuref ppq_warnings)
 set_target_properties(stage_vectors PROPERTIES SUFFIX ".exe")
 
+add_subdirectory(tests)
+
 if(NOT PPQ_GPU_ENABLED)
+    target_compile_definitions(ppq PRIVATE PPQ_WITH_GPU=0)
     return()
 endif()
 
-function(ppq_add_exe target)
-    ppq_gpu_sources(${ARGN})
-    add_executable(${target} ${ARGN})
-    target_link_libraries(${target} PRIVATE ppq_core ppq_warnings)
-    target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/apps)
-    target_compile_definitions(${target} PRIVATE PPQ_VERSION="${PROJECT_VERSION}")
-    set_target_properties(${target} PROPERTIES SUFFIX ".exe")
-endfunction()
+ppq_gpu_sources(apps/gpu_query.hip)
+target_sources(ppq PRIVATE apps/gpu_query.hip)
+target_link_libraries(ppq PRIVATE ppq_core)
+target_compile_definitions(ppq PRIVATE PPQ_WITH_GPU=1)
 
-ppq_add_exe(ppq apps/ppq.hip)
-ppq_add_exe(probe tools/probe.hip)
+ppq_gpu_sources(tools/probe.hip)
+add_executable(probe tools/probe.hip)
+target_link_libraries(probe PRIVATE ppq_core ppq_warnings)
+set_target_properties(probe PROPERTIES SUFFIX ".exe")
