@@ -18,6 +18,8 @@ set(PPQ_CORE_GPU_SOURCES
     src/device.hip
     src/shake_gpu.hip
     src/hash_kernels.hip
+    src/ntt_kernels.hip
+    src/verify_kernels.hip
 )
 
 ppq_gpu_sources(${PPQ_CORE_GPU_SOURCES})
