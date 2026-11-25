@@ -16,7 +16,7 @@ EXE      := ppq.exe
 RUN_ARGS ?= info
 
 .DEFAULT_GOAL := all
-.PHONY: all build configure cpu probe run test test-host stage-vectors clean distclean
+.PHONY: all build configure cpu probe run test test-host bench bench-host stage-vectors clean distclean
 
 all: $(EXE)
 
@@ -66,6 +66,21 @@ test-host:
 	@$(CMAKE) -S . -B "$(HOST_BUILD_DIR)" -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -DPPQ_GPU_ENABLED=OFF
 	@$(CMAKE) --build "$(HOST_BUILD_DIR)" --parallel $(JOBS)
 	@cd "$(HOST_BUILD_DIR)" && ctest --output-on-failure
+
+# Microbenchmarks: BENCH_SIZE is smoke, quick or full; BENCH_ARGS go to Google Benchmark
+# (e.g. BENCH_ARGS="--benchmark_filter=gpu_stage/matvec --benchmark_repetitions=5")
+BENCH_SIZE ?= quick
+BENCH_ARGS ?=
+
+bench: configure
+	@$(CMAKE) --build "$(BUILD_DIR)" --target bench_host bench_gpu --parallel $(JOBS)
+	@"$(BUILD_DIR)/bin/bench_host.exe" --ppq_size=$(BENCH_SIZE) $(BENCH_ARGS)
+	@"$(BUILD_DIR)/bin/bench_gpu.exe" --ppq_size=$(BENCH_SIZE) $(BENCH_ARGS) || [ $$? -eq 77 ]
+
+bench-host:
+	@$(CMAKE) -S . -B "$(HOST_BUILD_DIR)" -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -DPPQ_GPU_ENABLED=OFF
+	@$(CMAKE) --build "$(HOST_BUILD_DIR)" --target bench_host --parallel $(JOBS)
+	@"$(HOST_BUILD_DIR)/bin/bench_host.exe" --ppq_size=$(BENCH_SIZE) $(BENCH_ARGS)
 
 # Regenerate tests/vectors/stages from the pinned pq-crystals commit (host only)
 stage-vectors:

@@ -1,6 +1,5 @@
 add_library(ppq_host STATIC
     src/shake_vectors.cpp
-    src/mldsa_cpu.cpp
     src/workload.cpp
     src/kv_vectors.cpp
     src/acvp.cpp
@@ -17,9 +16,9 @@ endif()
 set(PPQ_CORE_GPU_SOURCES
     src/device.hip
     src/shake_gpu.hip
-    src/hash_kernels.hip
     src/ntt_kernels.hip
     src/verify_kernels.hip
+    src/gpu_verifier.hip
 )
 
 ppq_gpu_sources(${PPQ_CORE_GPU_SOURCES})

@@ -26,6 +26,7 @@ endif()
 option(PPQ_CPUREF_AVX2 "Build the pq-crystals AVX2 implementation (x86-64)" ${_ppq_x86_64})
 option(PPQ_CPU_NATIVE "Compile the CPU reference with -march=native" ON)
 option(PPQ_WITH_OPENSSL "Use OpenSSL 3.5+ as an extra CPU implementation when found" ON)
+option(PPQ_BUILD_BENCHMARKS "Build the Google Benchmark microbenchmarks (bench/)" ON)
 
 if(PPQ_CPUREF_AVX2)
     enable_language(ASM)
@@ -58,6 +59,20 @@ FetchContent_Declare(nlohmann_json
     FIND_PACKAGE_ARGS 3.11 CONFIG)
 FetchContent_MakeAvailable(CLI11 nlohmann_json)
 
+if(PPQ_BUILD_BENCHMARKS)
+    FetchContent_Declare(benchmark
+        GIT_REPOSITORY https://github.com/google/benchmark.git
+        GIT_TAG        v1.9.4
+        GIT_SHALLOW    TRUE
+        FIND_PACKAGE_ARGS 1.8 CONFIG)
+    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_INSTALL_DOCS OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_WERROR OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(benchmark)
+endif()
+
 enable_testing()
 add_subdirectory(core)
 add_subdirectory(cpuref)
@@ -87,6 +102,9 @@ target_link_libraries(stage_vectors PRIVATE ppq_cpuref ppq_warnings)
 set_target_properties(stage_vectors PROPERTIES SUFFIX ".exe")
 
 add_subdirectory(tests)
+if(PPQ_BUILD_BENCHMARKS)
+    add_subdirectory(bench)
+endif()
 
 if(NOT PPQ_GPU_ENABLED)
     target_compile_definitions(ppq PRIVATE PPQ_WITH_GPU=0)

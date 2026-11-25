@@ -20,6 +20,8 @@ __device__ inline std::size_t grid_stride() {
     return static_cast<std::size_t>(gridDim.x) * blockDim.x;
 }
 
+/// Callers cache the result: attributes are fixed for the program's lifetime (on the device
+/// that was current at the first query)
 inline int max_threads(const void *kernel) {
     hipFuncAttributes attr{};
     HIP_CHECK(hipFuncGetAttributes(&attr, kernel));

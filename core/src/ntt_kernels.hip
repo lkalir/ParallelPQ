@@ -64,9 +64,11 @@ __global__ void ntt_coop_kernel(std::int32_t *polys, std::size_t count) {
     }
 }
 
+/// Cached: attributes do not change while the program runs
 template <unsigned T> int coop_max_threads() {
-    return kernel::min_max_threads(&ntt_coop_kernel<T, NttDirection::Forward>,
-                                   &ntt_coop_kernel<T, NttDirection::Inverse>);
+    static const int cached = kernel::min_max_threads(&ntt_coop_kernel<T, NttDirection::Forward>,
+                                                      &ntt_coop_kernel<T, NttDirection::Inverse>);
+    return cached;
 }
 
 template <unsigned T>
@@ -135,8 +137,9 @@ void launch_ntt_coop(std::int32_t *polys, std::size_t count, NttDirection dir, u
 }
 
 int ntt_simple_max_threads() {
-    return kernel::min_max_threads(&ntt_simple_kernel<NttDirection::Forward>,
-                                   &ntt_simple_kernel<NttDirection::Inverse>);
+    static const int cached = kernel::min_max_threads(&ntt_simple_kernel<NttDirection::Forward>,
+                                                      &ntt_simple_kernel<NttDirection::Inverse>);
+    return cached;
 }
 
 void launch_ntt_simple(std::int32_t *polys, std::size_t count, NttDirection dir,
